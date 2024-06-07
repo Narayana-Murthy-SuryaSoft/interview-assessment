@@ -63,33 +63,37 @@ def group_by_artist_album(files, output_dir, copy=False):
         artist_album_dir = os.path.join(output_dir, artist, album)
         copy_or_show(copy, file, artist_album_dir)
 
-def suggest_metadata_matches(files):
-    for file in files:
-        song, artist, album = get_metadata(file)
-        print(f"File: {file}")
-        print("Top 3 matches:")
+def suggest_metadata_matches(file):
+    song, artist, album = get_metadata(file)
+    print(f"File: {file}")
+    print("Top 3 matches:")
 
-        params = {
-            "query": song,
-            "limit": 3,
-            "fmt": "json",
-        }
-        try:
-            response = requests.get(MUSICBRAINZ_API_URL, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                for idx, rec in enumerate(data['recordings']):
-                    title = rec.get('title', 'Unknown')
-                    artist = rec.get('artist-credit', [{'artist': {'name': 'Unknown'}}])[0]['artist']['name']
-                    album = rec.get('release', {}).get('title', 'Unknown')
-                    print(f"{idx + 1}. Song: {title}")
-                    print(f"   Album: {album}")
-                    print(f"   Artist: {artist}")
-            else:
-                print(f"Failed to fetch metadata suggestions for {file}")
-        except Exception as e:
-            print(f"Error fetching metadata suggestions for {file}: {e}")
-        print("---")
+    params = {
+        "query": song,
+        "limit": 3,
+        "fmt": "json",
+    }
+    try:
+        response = requests.get(MUSICBRAINZ_API_URL, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            for idx, rec in enumerate(data['recordings']):
+                title = rec.get('title', 'Unknown')
+                artist = rec.get('artist-credit', [{'artist': {'name': 'Unknown'}}])[0]['artist']['name']
+                album = rec.get('release', {}).get('title', 'Unknown')
+                print(f"{idx + 1}. Song: {title}")
+                print(f"   Album: {album}")
+                print(f"   Artist: {artist}")
+            return data
+        else:
+            print(f"Failed to fetch metadata suggestions for {file}")
+    except Exception as e:
+        print(f"Error fetching metadata suggestions for {file}: {e}")
+    print("---")
+
+def update_metadata(file, data, choice):
+    TODO
+
 
 def main():
     parser = argparse.ArgumentParser(description='Music Library Manager')
@@ -99,6 +103,7 @@ def main():
     parser.add_argument('--group-by', type=str, choices=['ARTIST', 'ALBUM', 'ARTIST_ALBUM'], help='Group by ARTIST, ALBUM, or ARTIST_ALBUM')
     parser.add_argument('--reorganize-by', type=str, choices=['ARTIST', 'ALBUM', 'ARTIST_ALBUM'], help='Reorganize by ARTIST, ALBUM, or ARTIST_ALBUM (dry run)')
     parser.add_argument('--suggest-metadata-matches', action='store_true', help='Suggest metadata matches from online sources')
+    parser.add_argument('--update-metadata', action='store_true', help='Update metadata suggestions from online sources')
 
     args = parser.parse_args()
 
@@ -134,7 +139,20 @@ def main():
             group_by_artist_album(list_files(args.input), output)
     elif args.suggest_metadata_matches:
         files = list_files(args.input)
-        suggest_metadata_matches(files)
+        for file in files:
+            suggest_metadata_matches(file)
+    elif args.update_metadata:
+        files = list_files(args.input)
+        for file in files:
+            data = suggest_metadata_matches(file)
+            choice = input('Do you wish to update (Y/N)')
+            if (choice == 'Y'):
+                choice = input('Select correct choice (1, 2, 3):')
+                if choice not in (1,2,3):
+                    return
+                update_metadata(file, data, choice)
+                print('Metadata updated')
+            
     else:
         print("Please specify a valid command")
 
