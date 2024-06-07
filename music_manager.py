@@ -2,8 +2,11 @@ import os
 import argparse
 import ntpath
 import shutil
+import requests
 from mutagen.easyid3 import EasyID3
 from mutagen.mp3 import MP3
+
+MUSICBRAINZ_API_URL = "http://musicbrainz.org/ws/2/recording"
 
 def list_files(directory):
     music_files = []
@@ -60,6 +63,34 @@ def group_by_artist_album(files, output_dir, copy=False):
         artist_album_dir = os.path.join(output_dir, artist, album)
         copy_or_show(copy, file, artist_album_dir)
 
+def suggest_metadata_matches(files):
+    for file in files:
+        song, artist, album = get_metadata(file)
+        print(f"File: {file}")
+        print("Top 3 matches:")
+
+        params = {
+            "query": song,
+            "limit": 3,
+            "fmt": "json",
+        }
+        try:
+            response = requests.get(MUSICBRAINZ_API_URL, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                for idx, rec in enumerate(data['recordings']):
+                    title = rec.get('title', 'Unknown')
+                    artist = rec.get('artist-credit', [{'artist': {'name': 'Unknown'}}])[0]['artist']['name']
+                    album = rec.get('release', {}).get('title', 'Unknown')
+                    print(f"{idx + 1}. Song: {title}")
+                    print(f"   Album: {album}")
+                    print(f"   Artist: {artist}")
+            else:
+                print(f"Failed to fetch metadata suggestions for {file}")
+        except Exception as e:
+            print(f"Error fetching metadata suggestions for {file}: {e}")
+        print("---")
+
 def main():
     parser = argparse.ArgumentParser(description='Music Library Manager')
     parser.add_argument('--input', type=str, required=True, help='Path to music folder')
@@ -67,6 +98,7 @@ def main():
     parser.add_argument('--show-metadata', action='store_true', help='Show metadata of music files')
     parser.add_argument('--group-by', type=str, choices=['ARTIST', 'ALBUM', 'ARTIST_ALBUM'], help='Group by ARTIST, ALBUM, or ARTIST_ALBUM')
     parser.add_argument('--reorganize-by', type=str, choices=['ARTIST', 'ALBUM', 'ARTIST_ALBUM'], help='Reorganize by ARTIST, ALBUM, or ARTIST_ALBUM (dry run)')
+    parser.add_argument('--suggest-metadata-matches', action='store_true', help='Suggest metadata matches from online sources')
 
     args = parser.parse_args()
 
@@ -100,6 +132,9 @@ def main():
             group_by_album(list_files(args.input), output)
         elif args.reorganize_by == 'ARTIST_ALBUM':
             group_by_artist_album(list_files(args.input), output)
+    elif args.suggest_metadata_matches:
+        files = list_files(args.input)
+        suggest_metadata_matches(files)
     else:
         print("Please specify a valid command")
 
