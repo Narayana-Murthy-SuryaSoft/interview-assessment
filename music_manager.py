@@ -34,26 +34,31 @@ def show_metadata(file_path, song, artist, album):
     print(f"Artist: {artist}")
     print(f"Album: {album}")
 
-def group_by_artist(files, output_dir):
+def copy_or_show(copy, source_file, dest_dir):
+    if copy:
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.copy2(source_file, os.path.join(dest_dir, os.path.basename(source_file)))
+    else:
+        print(source_file, '--->', os.path.join(dest_dir, os.path.basename(source_file)))
+    
+
+def group_by_artist(files, output_dir, copy=False):
     for file in files:
         song, artist, album = get_metadata(file)
         artist_dir = os.path.join(output_dir, artist)
-        os.makedirs(artist_dir, exist_ok=True)
-        shutil.copy2(file, os.path.join(artist_dir, os.path.basename(file)))
+        copy_or_show(copy, file, artist_dir)
 
-def group_by_album(files, output_dir):
+def group_by_album(files, output_dir, copy=False):
     for file in files:
         song, artist, album = get_metadata(file)
         album_dir = os.path.join(output_dir, album)
-        os.makedirs(album_dir, exist_ok=True)
-        shutil.copy2(file, os.path.join(album_dir, os.path.basename(file)))
+        copy_or_show(copy, file, album_dir)
 
-def group_by_artist_album(files, output_dir):
+def group_by_artist_album(files, output_dir, copy=False):
     for file in files:
         song, artist, album = get_metadata(file)
         artist_album_dir = os.path.join(output_dir, artist, album)
-        os.makedirs(artist_album_dir, exist_ok=True)
-        shutil.copy2(file, os.path.join(artist_album_dir, os.path.basename(file)))
+        copy_or_show(copy, file, artist_album_dir)
 
 def main():
     parser = argparse.ArgumentParser(description='Music Library Manager')
@@ -61,6 +66,7 @@ def main():
     parser.add_argument('--list-files', action='store_true', help='List all music files')
     parser.add_argument('--show-metadata', action='store_true', help='Show metadata of music files')
     parser.add_argument('--group-by', type=str, choices=['ARTIST', 'ALBUM', 'ARTIST_ALBUM'], help='Group by ARTIST, ALBUM, or ARTIST_ALBUM')
+    parser.add_argument('--reorganize-by', type=str, choices=['ARTIST', 'ALBUM', 'ARTIST_ALBUM'], help='Reorganize by ARTIST, ALBUM, or ARTIST_ALBUM (dry run)')
 
     args = parser.parse_args()
 
@@ -79,14 +85,21 @@ def main():
         if not os.path.exists(output):
             os.makedirs(output)
         if args.group_by == 'ARTIST':
-            group_by_artist(list_files(args.input), output)
+            group_by_artist(list_files(args.input), output, copy=True)
             print(f"Files grouped by Artist in directory: {output}")
         elif args.group_by == 'ALBUM':
-            group_by_album(list_files(args.input), output)
+            group_by_album(list_files(args.input), output, copy=True)
             print(f"Files grouped by Album in directory: {output}")
         elif args.group_by == 'ARTIST_ALBUM':
-            group_by_artist_album(list_files(args.input), output)
+            group_by_artist_album(list_files(args.input), output, copy=True)
             print(f"Files grouped by Artist and Album in directory: {output}")
+    elif args.reorganize_by:
+        if args.reorganize_by == 'ARTIST':
+            group_by_artist(list_files(args.input), output)
+        elif args.reorganize_by == 'ALBUM':
+            group_by_album(list_files(args.input), output)
+        elif args.reorganize_by == 'ARTIST_ALBUM':
+            group_by_artist_album(list_files(args.input), output)
     else:
         print("Please specify a valid command")
 
